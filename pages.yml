@@ -1,0 +1,1275 @@
+# Send to reMarkable — Outlook add-in
+# This one file builds and publishes the whole add-in to GitHub Pages.
+# Every file the add-in serves is written out below, so you can review all of it here.
+#
+# Setup (once):
+#   1. Settings > Pages > Source: "GitHub Actions"
+#   2. Settings > Secrets and variables > Actions > Variables > New variable:
+#        CLIENT_ID = the Application (client) ID from your Entra app registration
+#   3. Actions tab > "Deploy Send to reMarkable" > Run workflow
+#
+# Nothing here is secret. The client ID is a public identifier.
+
+name: Deploy Send to reMarkable
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  MSAL_VERSION: "3.27.0"   # Microsoft sign-in library, pinned; npm verifies its integrity
+  TENANT: "kengrant.com"   # only accounts in this tenant can sign in
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check settings
+        env:
+          CLIENT_ID: ${{ vars.CLIENT_ID }}
+        run: |
+          if [ -z "$CLIENT_ID" ]; then
+            echo "::error::Add a repository variable CLIENT_ID (Settings > Secrets and variables > Actions > Variables)."
+            exit 1
+          fi
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Write add-in files
+        run: |
+          mkdir -p site/assets site/vendor
+          cd site
+          base64 -d > 'assets/icon-128.png' <<'EOF_RM'
+          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
+          EOF_RM
+          base64 -d > 'assets/icon-144.png' <<'EOF_RM'
+          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
+          /fjHfx+vJSAry0xfAAAAAElFTkSuQmCC
+          EOF_RM
+          base64 -d > 'assets/icon-16.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAkFBMVEUuUYUrTH4rS34qTIEdQHW6
+          xNVHZI5rg6QAAAAqS31adpksTYCyvNAYOnMAf38qSnzP1uJZpIdlfKF7lKySo7zCzNosTYFheJ5A
+          XotbsIVlrI9xv5KYqMGDtqeG5JcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAACzpNSEAAAAMHRSTlP+i/z9///69QA49o3//wJ0//797///ff78///+////
+          AAAAAAAAAAAAAAAAAAAAAADJRkjpAAAAiklEQVR42mWPWwrEIAxFY2KM2tpW7WPe+19mgxQqzP0w
+          eLiBE5h82M2VPfgJ/EwA1KJz9hCIEMFpHohEAQyQXRfeNl5WS/o1gJaL1uFgixcYRWoV6UEUiaUH
+          LkbXNbgkxOd3vBs1wzvHfiX/XqkDfKSIN2hirGKfJtbUXQuqe/g/Ts8fjBk0+gY/nUp3BlSpE/V3
+          AAAAAElFTkSuQmCC
+          EOF_RM
+          base64 -d > 'assets/icon-25.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAMAAADzN3VRAAAAkFBMVEUpYnJdp4oqP38rTX8oUIYr
+          ToGUpb4pSnwsTYD6+vxLZ5ErSn0AAAArS3w1VokdQHZYdZgbPnV9krByiKknR3iF5pZAXotgeZ4A
+          f38rTH1OiYchPnoqTH4sTIIrToEtUX5supCvu83DzNsAAP8qTH4rTYAqVX8rUIFWkIxmfKJzyZCJ
+          nLe7xtbR2OQfP38AVVWRiDjrAAAAMHRSTlMG/wzGE93f/v3+/EkAPv7////8/w////QChf//ujtH
+          /v7Z1QF5hgk6/+3/4dfSCAN79HJfAAAA8ElEQVR42m2S2XbCIBBAsdoOIQTBgjGJWd23+v9/V5ZS
+          PMJ9Yrgsc2YGUc1H2xaB9iTNJqL0uf8E/Argw1GbDdoyDBCcWbOt3qd7Boalx0asokiCOQXk20NM
+          iEGiwp3JAk7lKLdXuI7tD0CyculM4R7LCCMGxjIOb+b2mKbp8ZUwwmYm1rFZ3cdxvN8Sd8ilLMsL
+          SRiTkYAZj00DPcCgzrE586YfVJ147ar4TNVNIrf+qlQNkDCCDbWtII/q5liHuv3Fca19f1Ye7vtD
+          K9dT4fnv6ebHzcErmM2Peg6orPA7B0l3yIzW4tTlga7T87ajvw/VHhE3MO6uAAAAAElFTkSuQmCC
+          EOF_RM
+          base64 -d > 'assets/icon-32.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAkFBMVEWN8JrQ1+IpSn0sTYD+/v4A
+          AAA1VYVwhqgoUHgqTH4eQXYYO3Ned5yruMxgeZ4rSntrt5DR2OPi5+4qS3xzyJGE5JZVVVVVVapl
+          fKK4w9QAf38qS30qS30sTYQrTYA6ZYJ7kK4rTYErUXwAVVWercTDzNrJ0t4fX38qS34sToEvVYQz
+          Y39JjIFbqYdjqY6B2pdOiiiMAAAAMHRSTlP///v+/gD+/BIc//////Mq/9HNcP//AwP5/wKP2BnU
+          /vOS/gP///8Io6Ab//////5R5TdOAAABJklEQVR42oWT6XKDMAyEXRnJYMLRcgRCCIQcvdv3f7va
+          xGRoi5Jvhj9oR2vDrkDEtXkC/w+tGwjEAyb7Hfxjt09wYwVrzCTJBUhmZihKzAgYKMNSYCIlJwCZ
+          GItmWkAzplcNis3WLai9GfVFIreBCMAKJKy8h6iORuro7Cl9ee0L3wliT4U6HNFhfBUEV8HK68FZ
+          E6hFgaInB1XLAqjikYrbMJ0hDDmLRwdr0StLr1gL0AYI3wdmg7bXHKD7ztkNli4vPhkBfHXjPNWM
+          xYfIicycuGtCWuRmDqC5M1BaFOkAxAh6kJSmZIJz+1Nr9nefjpHjWM8EpYucPM0jd54i598J7Qva
+          2MPN2N8vzo3qNbZ6aBq6XN5XV17EEtFv2+AX7duz7T3iD94PHF0J0wAtAAAAAElFTkSuQmCC
+          EOF_RM
+          base64 -d > 'assets/icon-48.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAAAkFBMVEXP1+IrTYFQbpIrTYFompma
+          qsKD45a8xtYrToQAAH8AAP8oU3svWn05Y4IgOXsqS30qS30AAAAwU4b7/PwqS30qS30ZPHMtToBG
+          Yo6Jm7fp7PLb4ekeQXd81pSSo71ziKmgrsV1yZL9/f5NhodVVaqA3ZXT2uXi5u2jssdVVVUrSHkq
+          TH0qS3wAVVUAf38/P39JXLx4AAAAMHRSTlP0XfaQ/u7//xkCARL///+o/gD+/3qT//v7///////t
+          ////xP8D/9HN/gMTLlEDAgSpMSOTAAABvElEQVR42pVW22KCMAwtinfdmoAUXXEisCl4+f+/WwDR
+          Fh0t5wEeOIdcmiZhUGF+AwNus/rNqucFIC8c/184zqIiNYIU8qEQ2AUxzOHUCFI4CxS8E0TwiVgJ
+          UvBN9FqyLhWMDJ2RWwF9IrPZfMqFnUCIAq7sBmtLA2SCnGKQawZe86NJFhRDofBx4m09DVuPhcr3
+          Mwn8xz+EnHhvwLSwVQHnXx5zNxpcsolqEG3BKJCBAh5sDIIjR6EA+c4g2Af6oZgtBOHPE2wQ7MyC
+          3wfYwSxouSSMLu0D3i+GfYChArQJ+qDAJujBaPfAKLQImksua1AEXG56ZcntmdZkHC37WCD+2LVI
+          64OfRVnMLQ4uSRp+FKNFWpMsS/jyzrfIkozJk+Tjzrc5aYyjKHKjim9TfJKXivr/dtVKfsQZaVa2
+          5U3ngPE4Xlneh6NEuvmYYN0MUO6MbaYsPWow9/ozWmDfLRw7BIIbW2UpUMfJgL3ht5ux3u7DF2g9
+          YQr9BsonnNi1ZaJzZhVw6T8Uy7Fr51QzdqtBLYyScrBfmtXhBMWwe3Og1YFG7nM5oS0id5z1vxg6
+          U205AbimpvUnvdbvP6tLq0Hf9QJbAAAAAElFTkSuQmCC
+          EOF_RM
+          base64 -d > 'assets/icon-50.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAkFBMVEU1XoErTYAtUH0HB3grS3t0
+          yJEAAP8rTYBfX19VVapZc5mfrsT///8qS30tTIOVpb4hO3vb4ekqS30AAAAuUYb9/v4tToAdQHUp
+          TH0rS31KZpBYdZkbPnSFmLV71ZRwhqitus3h5u3////AytnS2eMAf38pSnx9ka+YqMGD4pYqTHxN
+          iIdVk4qA3ZUAVVU/P39GAKwuAAAAMHRSTlPqXeICFv8BtQID8uW+tyjq///+AP7//f9thfv6//v/
+          ////wv//Airo3v9P////AwQ9KptuAAABwElEQVR42rWW63KCMBCFw00rWm2zIShBqq2ggsr7v10X
+          FCSgZemM5wfDQD52NxfOMrhqEkOP4snthpXXEQJzwzCWT4SvEhxl3REEjLEUf0qOU4BLhcRgj4Xg
+          PRJinJQMK4iE9QIlJEuGgWXZNIJziUyMyBu8EwmMY14QySEV2oe6ajIp5KwVxH+g5hfN2GJga5EX
+          m46mWhYJ1tLMS+68B9oKLTMGy/qB9L/wfUeetw/resSqiyiurzoPPG/dg/itiSUgfDjii6AhUmLh
+          evZda3YIKYiaLg43Laau/5pa/lN+4KpabjC8/Cmp/GC9r7VWtPLr9fd5SCv/fqRMrk7hwBlT0TEb
+          hrAIpYYgBXFmpCgZuxOKUot/OjoCKy+JjDJjgXmMIod93AiT06JEZ0c51xjEbYlMdK4I4lIWTHQ8
+          Ddr8yFQE+bxkTvbaIxbqBGHzf+7a6iLN37jYPvqNe80RS2iZhbv56WgTtMwiBlOzpK7b6ZaUjzrG
+          98BUuZZXPtRe7cKR45Et5TATR/dPJLFVSDGnsiG5FO1FbyApWAKTqu3BLsNgfW0PM6ySuDVXRdc0
+          N5ar5zLm146qRgBy6FU15BeOSMyTQ/4V0gAAAABJRU5ErkJggg==
+          EOF_RM
+          base64 -d > 'assets/icon-64.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAkFBMVEVjopHM1OAYU2cuU30qS30y
+          U4lSbZUrTIB3zZOA3ZX///8KFX9VVVUrTIAsTYC9x9cA//+crMMqS30AAAD9/f4tToAdQXYxU4Us
+          SngnR3yuu8571ZRLZ5EaPnSGmbWVpb7I0d65w9T///8+Pn1iep88aYJVVaqC4ZZQdJEAf38qS31g
+          p4wAAP8qSn0sSYgrTIGkQrjLAAAAMHRSTlP78QzknhT8aP//vgQDudj/Af/+AP/+/v4RJ////v/l
+          ///XwQT//wP/+QJx/wFTEZOG3Iu7AAACNklEQVR42sWX4XaiMBCFAxTRatvdhBAQ6HbLgqAo7/92
+          O0ARAqFlwjnt/eERzXzODAnOJaxXkrBFSpKyvyD3d1n9Yt/8L3S7NYvLMaBgzHcqiy6QVTkAMWVA
+          xkznWQi+SLCu8tuMO0DGgmfB6WJxwa8fOTSAhJ05IrxFnFnSATJ2FRStDwKp2xFwqiFxZYcGUJiW
+          FoBzvywBAA0QVEviAaqHDGzKqaZstieJooNiRqo+AuBh9EX04s7oLZrUYEIJlgwQhjsvmcCpDz3Y
+          Sy3g3usn8e7vWO5XDfBlQPzHdY1882+iTQ6pHT0ZEMwAYlXL4+NiwBtVnEtBMQDVxvO+FxAZfyUZ
+          OcUB8sd3SY8ECdi8jhQhAdSj3kBwKZCAyUHi35zB6h6svgur94HiCej97FkgZF0J5LQj8QoAOYXh
+          ydIHXCA+3OoD2vgUVYJFUyLFhymyiWJ7usjxuH2QbqFrl2E8bh/EeR1VE0gXj91IaUMgfTwSYLWE
+          cHePx2/llgDKdc9CKsXrHKY03O3u8VqnMSUk1zzOfN0DZfXfuxGptHlZBvh0xDnGUwAbzanCRQxZ
+          JlOMefnsmGZs5O7CmFcoB81oRlw1aJaYUXe8MIAM2LQG5LBd/vKp5rgPCdR3Qc+wNB3IWsuj5xig
+          gGRgugS2ClG1xq+1fQd25agkBD/XXnVoPP2qNpTLHB8Yz6CzrqR3zqbztOznnxyTdca1N99l/Ylt
+          2sEXshv3fSim7p3tk2KZ/S+GC/8DFQRFWMSEwZgAAAAASUVORK5CYII=
+          EOF_RM
+          base64 -d > 'assets/icon-75.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAAEsAAABLCAMAAAAPkIrYAAAAkFBMVEVYmooqS30rTYAmTIt1ypIq
+          S3gqS30sTYFgeJ7V3OUAAH8xVoG8xtYxX31VVVWDlrQiPXwA/wAqS30AAAD9/f4uUYQtToA+Pn4A
+          AP8qS30qS30dQHZ71ZRMaJJuhKb+/v4aPnSxvc+TpL3n6/BXdJfd4urCzNqC4ZawvM5VVarh5uwA
+          f39Vk4mA3ZUAVVUrTH016Y3kAAAAMHRSTlP/X5cX/xSLXvT1AuHx/wP//wH+AP/+/QQBqMr+//74
+          xP/////z////2QPNAv//Ay3HczKLAAACfElEQVR42u2YC3OiMBSFA4iKuu2WNAkqtlhpWTY8/v+/
+          2xuKFExAE+iMs9Mz44wzkI+bB5c5B+GOONNR0R2MWv8DhnWVcjUrxXhVLuztrbItx4FRgcyCB7iL
+          tU90RHd2iXFxyWJAooT6eoIRtotZl5Xicq1NqkSoda4M1SiLGpFEbQBjXyxAEd9cpIahatlL46o+
+          S7PEIRCsgLu7USiYpsN5xRo5w2qWW/wgWAF2fDqS5VMHNhPBsinKGoZTVWFM1MUUq7UfegHgqkx3
+          8RMqYBPlJz96p369v6nPBVJO8fg8rI3MmlesucSKn6/pZU/lBQPW9oJFoze4+/TepxNcPUqsHQ56
+          WdKTGx1+WN/O8kksixiyDq+ylnfAIi+yyM+Z6Gep+qDpPv69lPca38GZWP6RtDn8/2cim+7co2RG
+          ongSFkrCfPZrkrqyJAzDBE3ByvJQaIq6qqrCMI4MWYhIKLN9JDAedVF57BOzdwjG56iDQoZnNUJJ
+          M7yNMmKtZzXgN2qjDL8dFSxBKGyjDNf+ExbmHZTp+1jDqupG94kzLMkm6Dn1mmWT9C8yS/IOakz/
+          IgjF99SjfdL44PYNxNfvq8uopyyDnuN99MkbYEm+Y7+86jseFb4jVfuhzRWUR5V+6EHp046nIdSR
+          qH0axo7KP5JDv5SO2sVc+Nq5rq9VGu4UfO1KOUldv11WfhuA8wlyAH7OJ/yx+URZs6A6axyLNLkJ
+          VscKGqj5V54zLmcSqKKdfzkAMytN5F8rKZez9XM5IEHKl17mhVBmCTSRAt4YFoqfvcANqpVjBkBz
+          IMbc3SrbXkCOybkyX+Wpdr7Ki56sVqS1jAW3KmWMd0b/A8jyxMIr/V9oAAAAAElFTkSuQmCC
+          EOF_RM
+          base64 -d > 'assets/icon-80.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAMAAAC5zwKfAAAAkFBMVEVlkZkjUo1VeZQvVncrTYAs
+          ToFdXV0uU36FmLXX3ee7xdUOHHggP3gqS30AAAD9/f0vUoU5OXQtToBLZ5F71ZQqS30qS33m6u/9
+          /f0eQXdnfqLO1uGA3ZVBXouvvM7U2uTh5uwAf38qS31KgYYqS31yxpEAVVU6ZoJVVaoAAP8rS3qC
+          4ZYqS30rTYBhqIwqS305seSOAAAAMHRSTlP6HfkUlmYC/+rn5AX//gD//gT9/f+AqP/G//3////Z
+          0c0CVP9w/wP/AwES/zDT/9NTSyg8AAACq0lEQVR42uXZ3XaiMBQF4ICo1U5iCKjVsTOCKD+Kff+3
+          m5MAreABC8mFq7PvutRvJSRosyGsnvTk9kqSNgBS+ys5sd4JklZQvpKNwmj57URjy4IPuSgYwAuh
+          QwXvFSGccaY+3ARhsmEOb6A9AwPIx69fg6xAl13y/lpl5pdPkVReKDgdHCGiSiSlFwlBdcKXpUiK
+          6xdqeiBGapcoMGAXbQ9mHcqFVeAk+OBUO4JmQapAWBADXnUZAQxGH8IEKOiIpQCaGqBaFxfAE1uh
+          YPcthw7xI1BTHlFkxt58vejKzMZEiwXkxCzMWzwMuR8HD5lL8Ev4+zG45ug6AxjxIQNcLOy7IfKV
+          Apc4uPbevXc8HpczIJueYMcG2Uhw2xfkHVvYMEh/MOjN/9xlvtW4hts3JC+b4aCNghoj5B4S/qNX
+          +flBe//3LnvyXPtwtm9k9qYzQtr2g/fUqxwbBmP/ahSMff98NQiCp0RTID9K0N9NDYGl53u/zID8
+          uFNerHMNSYx40+Hg9XzkdW9n6+zD69nflWLlHXTuFPB8JU4b3lDwUGwSKda9wVM+FMwxJnVv+KIU
+          YpkvT2Pb3Ig3ns6t9ymeiaHvw1KseXpfDkqse5rfNra/8w9GfwK4Hf8v/4pAzYOGd4NtR7N1RxZd
+          4BiZ2+wbZ72Ww+MJKpH7k9L2sfeyEdiRnqQsww7g2wcH3DXBjmwXOIBDa4NXBF5n+AarCEastcR4
+          2JOIlp5FFkEZNVOzyBkXRVBktggy1AQJkaWvBYjtnAEDDNmkqvsSA5OGCSe3heRSU4S7LqlXploV
+          p4DxTeqlriU74qEkhzIyaNbOFnMdMYSEDzlZNb7bYhz6zmycU94zInfghpug1b2sea1wueoRJ5Ld
+          /e0ThtrDhdRlA+IG7U8r4K5xeyZoAP8Anlh/+1xbY2YAAAAASUVORK5CYII=
+          EOF_RM
+          base64 -d > 'assets/icon-96.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAAkFBMVEVjlZYqS30rTYCA3JUnToku
+          UoEqS30rTYFaWlqgr8YrU3vI0d2RorwcPXUuUn5TbpdzxpE/Pz8qKlV/AH8qS30AAAD9/f0sTYAy
+          UoR71ZQAAP/+/v4sSncrTX4AVVXn6/BRc5NJZZDI0d4eQXa7xtY+Pn3e4+qC4JajsMa9x9ZWlYlV
+          VaoqS30AAH8qS30Af39fqNLRAAAAMHRSTlP5lqD/G9htWwLqEvDy/////wQGAv4A//7+/wHGETMD
+          //r8////BP//3Nb/A1ICzQIq+HOYAAADRklEQVR42u2a63KbMBCF1xiMb7m01UaCgg0lhNQY/P5v
+          VwE2dm0JCF51pjM+M/mThPNppSWKdxdQKX+E1E5w850iTw84Sn6qePIakDe/Ygdflp3WkLwTsJFx
+          2q5lOWyEytJy7WqNWoC/QdxbXAjBR6l60HKXiAc1QNq7jhDsLgnhzBBTFSDFwLrXvhIXTnhBaAE5
+          hg6BfR0F3593Cdr17zlnROJi1sYArb9ghBKTE6EBzDHkjFQyhvwMKA4BJwZwHsplnwA5TgQjFi+D
+          wwmQEx9Au0npEXDA0gCAs+AYgZkATiFAlULaE+AD16o5haVfAQpc6h8UA8QSHWEvFw/4TbdDPInf
+          t2/9WkHS8baB/FLvEE/gbaDW6hgkoKi3SJND8dtgvSjPocojH+RNWip/+rQYDlhpTjHAAnwMNGnw
+          q3p0+9Gj+pS2mlO0cdMHiHuzfdsBCB+AB+DfADiLPxefCi0+gQaQwE+NFvJvEEUEegCjAUSr30qt
+          4JFFD8BQgIg0ioneZOPvgRaw/j8AcptjjcQjTXsAYHiLIINnkwDIvOnrszmA9Pe8KTxzQ4Da3/My
+          MBRB5B0FZiI4+U+jJyMRnP2psgginT8NIJp60a1/tqN6k6W/dyb87U8BqP1bwpU/AcDJjpaRyp8i
+          gt0Fwbn2JzmDM0Hc+NNkUUt4vfEneg9aQpP/O/oL55JwuX66++BMyMDMlXkiXPkTXjgN4dqf8kbb
+          ZdPpjT/plRkBwOPzgeqf307dDXh5YkmHWMK291W8Vu996iqpLSUAMVAXBROComAoi4LoY6mOIBoO
+          gKSjrKkvzK6H+i90xWvZ4KwAM11tHD6G2G/XrLO0XGCoy/GExVGvYpHoAE1xHH9o+xMD+zq64jtb
+          Ng2K1FSDYnJsUKBvl5wZabEcGoCZEGQA+anNNZ/Td4k4XxZ+26iTjUDqTZIplJ9bjfSNqLaZ2TZL
+          Z0abpdTdRjFpDuCyYT3HGdU5cLl+9BUtd9kS50QNcVs1NJDjd5ffi5AGVqAeGqinFQLXkdMLfKx5
+          NfcQ1vMNmsENSU7l3AZjY8Yq5McTy5Ud2NzvGD3x02bwJPy67LBu76ZF3/DMZuzsTLW8fMB0Tv23
+          YzNCB+UA0B+ughJRPxGiXQAAAABJRU5ErkJggg==
+          EOF_RM
+          base64 -d > 'assets/tomorrow-16.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAkFBMVEUwUoUqTH4oSXwrTYIaPXOs
+          ucz6+/wAAAAqS31whqhNioYeQnVYd5fEzNvp7fIAf38qSnxIZ454kasrU3tld6PI0d4sToErToJj
+          q43e4+sjPXxAX4pNkYNZqoRvvpKBlLORo72YqMG2wNMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAD98s7SAAAAMHRSTlP+jPz+/P//ADj///z///8CdP3/////fYX/////////
+          /////wAAAAAAAAAAAAAAAABQty7MAAAAkklEQVR42k2PiQ6DIBBE10G5FcF69bLt/39kQbweG0Je
+          NmSGnJBDsTFI4Ui0jCjOerFWkGQMxsMYeAPGJBUEsnOwVs02Pot4yg/f+JZZVLyJ8IZXu1BIf0Kd
+          ogQ63d0uGxqYnqcI+q3vVl82jEY3vcIhFvL08BR+WUD1dR2n7lUKlqIfpOi53EouF+uPe/1RCvcH
+          lbQG26TPhWwAAAAASUVORK5CYII=
+          EOF_RM
+          base64 -d > 'assets/tomorrow-32.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAkFBMVEUpSn0sTYD8/P0AAAAxU4Mo
+          UHgqTH5NaZIdQHUYOnOTpL2Hmrbn6/DBytlQdJErUXwrSnsqS3xptY5zx5FVVVVVVap81pRiqY0A
+          f38qS30qS30sTYQrTYA7aIJeoowgOnsrTYFLh4Wptsq4w9QAVVVZmoqXqMDX3eYfX38qS34sToEv
+          VYRCX4yD35jc4uoAAAC1gjo1AAAAMHRSTlP7/v8A/xIc////////////KnD//wMD//8Cj9gZ1P//
+          /5L///8D////CKOgG////wDaaQMgAAABRklEQVR42pWTi3KCMBBFN9nlEbAJBAQVwVetff//5zUh
+          6AjEdnqBGWDPbGBzLyDi0lxhMFEzFADxGbP9Fmba7jNcWWCJOSPmEbHcFKHEnOCBKMcSMGNseBbX
+          Qny9YZlZYu0aEMiUwPVOJQwv1wirjWsQiyOPRCzMSfwkXBO2CSGEHqA0vfBj0uvIv5PkswcgMIcF
+          2IVPtKAeCAcg4jPJfwOLkebAC9CdIOXRBEjE/QyFB4jvJs5iXwcGyhZbrTX5OggCLQ3T1kXlB2BX
+          SPshovMDqjsX9flgetQPgLordH0A2HUV+20J1epKKv9vauuDtiqKr4N/UP1vglKKPHMwo+6N2vvX
+          jnq8F7SY7ebVD6WzXHR6GukkneWCm2njiZxp39Da3u3PRDfb/x2cX6K3ttFDk1B/eN+H8CKWiEHT
+          hCM1H68294g/PqgVu67+OhUAAAAASUVORK5CYII=
+          EOF_RM
+          base64 -d > 'assets/tomorrow-80.png' <<'EOF_RM'
+          iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAMAAAC5zwKfAAAAkFBMVEVomZkjUo3T2uSPoLsvVncr
+          TYCotsorTYBedp0iPXsqS30sToFdXV0OHHi+yNcqS33+/v4AAAAvUoU5OXTX3eYtToAqS30qS318
+          1pNbdJtheZ7s7vNHY49UlIl0yJGA3pWD4pY7aIIAf38qS30vU34qS30ZPHRotI4AVVUdQHZVVape
+          o4wAAP8rS3pOiIcqS33LWdeuAAAAMHRSTlP/Hf//FNP/lv//02YCBf/+/wD+BP/9gKj/////////
+          ////AlT/cP//A/8D/wES/zCEunK+AAAC40lEQVR42u2ZW7uiIBSGsfNpD4JR2slTdhqt///vZkHa
+          KBt3ojxzMU/fTSXytmBBsT4RqSq9OFq6pRIAVT7dLkRb0a0WyFuyQZysGiuZWxZ0cpTACBriMWZU
+          S4yN55noLANhsPEQbsCaggCG86+/QRZAhzyG+rSCOXy8iKjgxYzi1mIsKYgo5yWM4S6iq5yInvMX
+          d+QBMRGrRAAj8ujMg1HHPLECuIhmFHcWw1mUCiAkhNbdoz+NAIwGM4axiRAHJAVgfYDeRtnAPK82
+          Lw4AL2StBo5seztRdFva9i91iLNIDHmgnitqg/onqY1dEb+ujpFZJEIXYjHVIsA7AbzC9i+L4hxI
+          FSuNxsRBiikUd57yCOVOpwm/vjupVgHPMwATGXil3mbiiUhG3mRT0cTriy/i13dXGbgWwBX9no1m
+          GtFGwMY8216yt8A8i01VXQVKIO7pAHsNhrzUAdrUMHD7Af4z4HbZW75VTwO4uTb4hd7pAJv8nXyA
+          /y+QH1uPpoDhHR1A7t4UEAUuV9ABeD+cwzLQ50C/A3Af+CXgHt1D5HeKcO+7YaV1+tss8IgNA3FH
+          4JQDp0aA2DuD0MF1z0JhZyDkNwj4uuMvQdAdeD8Iue7zNTQyh0fjSalbh1NDQBqGFHaKv+dvTAD3
+          YisL+fdTy71cAQYvYNASeHcPZWCecp79lsBj/uv8+lSI0s+/3s9AdGp4WHp/xs6rgPfHud5yW1cF
+          JKbrlHn7SqqnKB4vYIlIk9PfNq312PeSHqUkk1MK1WgjUfmcyx5QgINrI1sEjS0NudqfDciPJkYr
+          u4obQRk2Y7PwET+NoIQaC/DpfRlxghjL0q8nULFy2gQYk0Vh990MDBoGfCsbkquORNh1t6pl2sni
+          ZBDfomrqWtwjboukYEZGsu1sEWfM2iCh0zgr4isb4+B3ZvMhpppiwzFsuIXSuuc2rxWv1hoaJ9y7
+          Lz9hqDxcSB3SQk5U/7QCdo2jqUgC/AGv3qvF17A0WwAAAABJRU5ErkJggg==
+          EOF_RM
+          cat > 'auth.html' <<'EOF_RM'
+          <!DOCTYPE html>
+          <html lang="en-GB">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Signing in…</title>
+          </head>
+          <body style="font:14px -apple-system,'Segoe UI',sans-serif;padding:24px">
+            <!-- Sign-in pop-up returns here; the add-in reads the result and closes this window. -->
+            <p>Signing in… this window will close automatically.</p>
+          </body>
+          </html>
+          EOF_RM
+          cat > 'commands.html' <<'EOF_RM'
+          <!DOCTYPE html>
+          <html lang="en-GB">
+          <head>
+            <meta charset="UTF-8">
+            <title>Send to reMarkable commands</title>
+            <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+            <script src="vendor/msal-browser.min.js"></script>
+            <script type="module" src="commands.js"></script>
+          </head>
+          <body>
+            <!-- Runs the one-tap button. Outlook loads this page out of sight. -->
+          </body>
+          </html>
+          EOF_RM
+          cat > 'commands.js' <<'EOF_RM'
+          // One-tap "Add for tomorrow" button (Outlook on the web, Windows and Mac).
+          // Creates the task without opening the pane, then shows a note at the top of the email.
+
+          import {
+            isConfigured, itemDetails, alreadySent, tomorrow, prettyDate,
+            getToken, createTaskFromEmail, chosenList, friendly,
+          } from "./core.js";
+
+          const KEY = "rmResult";
+
+          function notify(item, message, isError) {
+            const msg = message.length > 150 ? message.slice(0, 149) + "…" : message;
+            const details = isError
+              ? { type: Office.MailboxEnums.ItemNotificationMessageType.ErrorMessage, message: msg }
+              : { type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage, message: msg, icon: "Icon.16", persistent: false };
+            return new Promise((resolve) => item.notificationMessages.replaceAsync(KEY, details, () => resolve()));
+          }
+
+          async function addTomorrow(event) {
+            const item = Office.context.mailbox.item;
+            try {
+              if (!isConfigured()) throw new Error("The add-in isn't configured yet.");
+              const details = itemDetails(item);
+              const repeat = alreadySent(details.restId);
+              // Never pops up a sign-in window from here: the pane handles first sign-in.
+              const token = await getToken({ interactive: false });
+              const d = tomorrow();
+              const { listName, fellBack } = await createTaskFromEmail(token, details, {
+                title: details.subject,
+                due: d,
+                note: "",
+                important: false,
+                reminder: false,
+                includeSnippet: false,
+              });
+              const where = listName ? ` in ${listName}` : "";
+              let msg = `Added to To Do for ${prettyDate(d)}${where}.`;
+              if (fellBack) msg += " Your chosen list was gone, so it went in the default list.";
+              else if (repeat) msg += " (You'd sent this email before.)";
+              await notify(item, msg, false);
+            } catch (e) {
+              console.error(e);
+              await notify(item, `Couldn't add the task. ${friendly(e)}`, true);
+            } finally {
+              event.completed();
+            }
+          }
+
+          Office.onReady(() => {
+            Office.actions.associate("addTomorrow", addTomorrow);
+          });
+
+          // Shown in the log so you can tell which list one-tap uses.
+          try { console.info("Send to reMarkable one-tap list:", (chosenList() || { name: "default" }).name); } catch { /* ignore */ }
+          EOF_RM
+          cat > 'config.js' <<'EOF_RM'
+          // Settings for the Send to reMarkable add-in.
+          // None of these values are secret: a public client ID and your tenant domain.
+          export const CONFIG = {
+            // Application (client) ID from the Entra app registration.
+            clientId: "__CLIENT_ID__",
+            // Your Microsoft 365 tenant (domain or tenant ID). Only accounts in it can sign in.
+            tenant: "kengrant.com",
+            // Where this add-in is hosted (no trailing slash).
+            baseUrl: "__BASE_URL__",
+            // Least-privilege delegated permissions.
+            scopes: ["Tasks.ReadWrite", "Mail.ReadBasic", "User.Read"],
+          };
+          EOF_RM
+          cat > 'core.js' <<'EOF_RM'
+          // Shared logic for the task pane and the one-tap button.
+          // All network calls go only to Microsoft (sign-in + Graph).
+
+          import { CONFIG } from "./config.js";
+
+          const GRAPH = "https://graph.microsoft.com/v1.0";
+
+          // ---------- small helpers ----------
+
+          export function store(key, value) {
+            try {
+              if (value === undefined) return JSON.parse(localStorage.getItem(key) || "null");
+              if (value === null) localStorage.removeItem(key);
+              else localStorage.setItem(key, JSON.stringify(value));
+            } catch { /* storage unavailable */ }
+            return null;
+          }
+
+          export function ymd(d) {
+            const p = (n) => String(n).padStart(2, "0");
+            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+          }
+
+          export function prettyDate(d) {
+            return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+          }
+
+          export function tomorrow() {
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() + 1);
+            return d;
+          }
+
+          export function asyncOffice(fn) {
+            return new Promise((resolve, reject) =>
+              fn((res) => (res.status === Office.AsyncResultStatus.Succeeded ? resolve(res.value) : reject(res.error))));
+          }
+
+          export function isConfigured() {
+            return !CONFIG.clientId.startsWith("__") && !CONFIG.baseUrl.startsWith("__");
+          }
+
+          // ---------- the open email ----------
+
+          function restIdFor(item) {
+            const host = (Office.context.mailbox.diagnostics && Office.context.mailbox.diagnostics.hostName) || "";
+            if (/ios|android/i.test(host)) return item.itemId; // mobile already returns the REST id
+            try {
+              return Office.context.mailbox.convertToRestId(item.itemId, Office.MailboxEnums.RestVersion.v2_0);
+            } catch {
+              return item.itemId;
+            }
+          }
+
+          export function itemDetails(item) {
+            return {
+              item,
+              subject: item.subject || "(no subject)",
+              from: item.from ? `${item.from.displayName || ""} <${item.from.emailAddress || ""}>`.trim() : "",
+              received: item.dateTimeCreated ? new Date(item.dateTimeCreated) : null,
+              restId: restIdFor(item),
+            };
+          }
+
+          export async function snippetText(item) {
+            try {
+              const text = await asyncOffice((cb) => item.body.getAsync(Office.CoercionType.Text, cb));
+              return text.replace(/\s+/g, " ").trim().slice(0, 500);
+            } catch {
+              return "";
+            }
+          }
+
+          export function alreadySent(restId) {
+            const sent = store("rm.sent") || {};
+            return Boolean(sent[restId]);
+          }
+
+          export function rememberSent(restId, taskId) {
+            const sent = store("rm.sent") || {};
+            sent[restId] = { taskId, at: Date.now() };
+            const keys = Object.keys(sent);
+            if (keys.length > 200) {
+              keys.sort((a, b) => sent[a].at - sent[b].at).slice(0, keys.length - 200).forEach((k) => delete sent[k]);
+            }
+            store("rm.sent", sent);
+          }
+
+          // ---------- sign-in (Microsoft only) ----------
+
+          let pca = null;
+
+          async function getPca() {
+            if (pca) return pca;
+            if (!window.msal) throw new Error("The Microsoft sign-in library didn't load. Check your connection and try again.");
+            const cfg = {
+              auth: {
+                clientId: CONFIG.clientId,
+                authority: `https://login.microsoftonline.com/${CONFIG.tenant}`,
+                redirectUri: `${CONFIG.baseUrl}/auth.html`,
+              },
+              cache: { cacheLocation: "sessionStorage" },
+            };
+            const naa = Office.context.requirements.isSetSupported("NestedAppAuth", "1.1");
+            pca = naa
+              ? await window.msal.createNestablePublicClientApplication(cfg)
+              : await window.msal.PublicClientApplication.createPublicClientApplication(cfg);
+            return pca;
+          }
+
+          // interactive: false = never show a sign-in window (used by the one-tap button and background loads).
+          export async function getToken({ interactive = true } = {}) {
+            const app = await getPca();
+            const loginHint = Office.context.mailbox.userProfile && Office.context.mailbox.userProfile.emailAddress;
+            const req = { scopes: CONFIG.scopes, loginHint };
+            const account = app.getActiveAccount() || app.getAllAccounts()[0];
+            try {
+              const r = await app.acquireTokenSilent(account ? { ...req, account } : req);
+              return r.accessToken;
+            } catch (e) {
+              if (!interactive) {
+                const err = new Error("Sign-in needed");
+                err.needsSignIn = true;
+                err.cause = e;
+                throw err;
+              }
+              const r = await app.acquireTokenPopup(req);
+              if (r.account) app.setActiveAccount(r.account);
+              return r.accessToken;
+            }
+          }
+
+          // ---------- Microsoft Graph ----------
+
+          export async function graph(token, path, options = {}) {
+            const res = await fetch(GRAPH + path, {
+              ...options,
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(options.headers || {}) },
+            });
+            if (!res.ok) {
+              let msg = `${res.status} ${res.statusText}`;
+              try {
+                const j = await res.json();
+                if (j.error && j.error.message) msg = j.error.message;
+              } catch { /* keep status text */ }
+              const err = new Error(msg);
+              err.status = res.status;
+              throw err;
+            }
+            return res.status === 204 ? null : res.json();
+          }
+
+          // All To Do lists, default list first, the rest by name.
+          export async function listLists(token) {
+            const data = await graph(token, "/me/todo/lists?$select=id,wellknownListName,displayName&$top=100");
+            // Leave out "Flagged Emails": To Do fills it from Outlook flags and new tasks can't be added there.
+            const lists = data.value.filter((l) => l.wellknownListName !== "flaggedEmails").map((l) => ({
+              id: l.id,
+              name: l.wellknownListName === "defaultList" ? `${l.displayName} (default)` : l.displayName,
+              isDefault: l.wellknownListName === "defaultList",
+            }));
+            lists.sort((a, b) => (b.isDefault - a.isDefault) || a.name.localeCompare(b.name));
+            return lists;
+          }
+
+          // The list chosen in the pane (remembered), else the default list.
+          export function chosenList() {
+            return store("rm.list"); // { id, name } or null = default
+          }
+
+          export function chooseList(list) {
+            store("rm.list", list && !list.isDefault ? { id: list.id, name: list.name } : null);
+          }
+
+          async function defaultListId(token) {
+            const cached = store("rm.defaultListId");
+            if (cached) return cached;
+            const lists = await listLists(token);
+            const def = lists.find((l) => l.isDefault) || lists[0];
+            if (!def) throw new Error("Couldn't find your To Do task list.");
+            store("rm.defaultListId", def.id);
+            return def.id;
+          }
+
+          async function emailLink(token, restId) {
+            try {
+              const m = await graph(token, `/me/messages/${encodeURIComponent(restId)}?$select=webLink`);
+              if (m && m.webLink) return m.webLink;
+            } catch { /* fall back below */ }
+            return `https://outlook.office.com/mail/deeplink/read/${encodeURIComponent(restId)}`;
+          }
+
+          // Creates the task. Returns { task, listName, fellBack }.
+          // opts: { title, due (Date|null), note, important, reminder, includeSnippet, listId? }
+          export async function createTaskFromEmail(token, details, opts) {
+            const chosen = chosenList();
+            const wantedListId = opts.listId !== undefined ? opts.listId : (chosen && chosen.id);
+
+            const [link, snippet] = await Promise.all([
+              emailLink(token, details.restId),
+              opts.includeSnippet ? snippetText(details.item) : Promise.resolve(""),
+            ]);
+
+            const lines = [];
+            if (opts.note) lines.push(opts.note, "");
+            lines.push(`Email: ${details.subject}`);
+            if (details.from) lines.push(`From: ${details.from}`);
+            if (details.received) lines.push(`Received: ${details.received.toLocaleString("en-GB")}`);
+            if (snippet) lines.push("", snippet + (snippet.length >= 500 ? "…" : ""));
+
+            const task = {
+              title: opts.title,
+              importance: opts.important ? "high" : "normal",
+              body: { content: lines.join("\n"), contentType: "text" },
+              linkedResources: [{
+                webUrl: link,
+                applicationName: "Outlook",
+                displayName: details.subject.slice(0, 255),
+                externalId: details.restId,
+              }],
+            };
+            const d = opts.due;
+            if (d) {
+              task.dueDateTime = { dateTime: `${ymd(d)}T00:00:00`, timeZone: "UTC" };
+              if (opts.reminder) {
+                const r = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0, 0);
+                task.isReminderOn = true;
+                task.reminderDateTime = { dateTime: r.toISOString().slice(0, 19), timeZone: "UTC" };
+              }
+            }
+
+            const post = (listId) => graph(token, `/me/todo/lists/${encodeURIComponent(listId)}/tasks`, { method: "POST", body: JSON.stringify(task) });
+
+            let created, listName = chosen && wantedListId === chosen.id ? chosen.name : null, fellBack = false;
+            if (wantedListId) {
+              try {
+                created = await post(wantedListId);
+              } catch (e) {
+                if (e.status !== 404) throw e;
+                // The chosen list was deleted: forget it and use the default list.
+                chooseList(null);
+                fellBack = true;
+                listName = null;
+              }
+            }
+            if (!created) {
+              try {
+                created = await post(await defaultListId(token));
+              } catch (e) {
+                if (e.status !== 404) throw e;
+                store("rm.defaultListId", null);
+                created = await post(await defaultListId(token));
+              }
+            }
+            rememberSent(details.restId, created.id);
+            return { task: created, listName, fellBack };
+          }
+
+          export function todoLink(taskId) {
+            return `https://to-do.office.com/tasks/id/${encodeURIComponent(taskId)}/details`;
+          }
+
+          export function friendly(e) {
+            const m = (e && (e.errorMessage || e.message)) || String(e);
+            if (e && e.needsSignIn) return "Open Send to reMarkable once to sign in, then try again.";
+            if (/popup|user_cancelled|cancel/i.test(m)) return "Sign-in was cancelled or the pop-up was blocked. Please try again.";
+            if (/consent|AADSTS65001/i.test(m)) return "The add-in hasn't been granted permission yet. An admin needs to grant consent in Entra.";
+            if (/AADSTS50011|redirect/i.test(m)) return "Sign-in is misconfigured (redirect URI). Check the app registration.";
+            if (/AADSTS700016|application.*not found/i.test(m)) return "The app registration couldn't be found. Check the CLIENT_ID variable.";
+            return m;
+          }
+          EOF_RM
+          cat > 'index.html' <<'EOF_RM'
+          <!DOCTYPE html>
+          <html lang="en-GB">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Send to reMarkable</title>
+            <style>
+              :root { --bg:#fff; --fg:#1f2328; --muted:#646d78; --line:#d7dce1; }
+              @media (prefers-color-scheme: dark) { :root { --bg:#1e1f22; --fg:#e8eaed; --muted:#9aa1aa; --line:#3a3d42; } }
+              body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 -apple-system,"Segoe UI",sans-serif; }
+              main { max-width:640px; margin:0 auto; padding:32px 16px 48px; }
+              h1 { font-size:22px; display:flex; gap:10px; align-items:center; }
+              h2 { font-size:16px; margin-top:28px; }
+              p, li { color:var(--fg); } .muted { color:var(--muted); }
+              code { background:rgba(127,127,127,.15); padding:1px 5px; border-radius:4px; }
+            </style>
+          </head>
+          <body>
+          <main>
+            <h1><img src="assets/icon-64.png" width="32" height="32" alt="">Send to reMarkable</h1>
+            <p>A private Outlook add-in. It turns the email you're reading into a Microsoft To Do task, which Dayfolio syncs to the reMarkable planner.</p>
+
+            <h2>Privacy</h2>
+            <ul>
+              <li>No server: these are static files. The add-in talks only to Microsoft sign-in (<code>login.microsoftonline.com</code>) and Microsoft Graph (<code>graph.microsoft.com</code>).</li>
+              <li>It reads only the email that's open, and only when you press the button.</li>
+              <li>Permissions are delegated and minimal: <code>Tasks.ReadWrite</code>, <code>Mail.ReadBasic</code>, <code>User.Read</code>.</li>
+              <li>No client secret, and no email content is stored here. Tasks live in your own Microsoft 365 account.</li>
+            </ul>
+
+            <h2>Manifest</h2>
+            <p><a href="manifest.xml">manifest.xml</a>: upload this in the Microsoft 365 admin centre under Settings → Integrated apps.</p>
+            <p class="muted">Remove it at any time from Integrated apps, or delete the app registration in Entra.</p>
+          </main>
+          </body>
+          </html>
+          EOF_RM
+          cat > 'manifest.xml' <<'EOF_RM'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                     xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+                     xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+                     xsi:type="MailApp">
+            <Id>f4a6703c-3a40-4a81-b497-3f7ec4f442d3</Id>
+            <Version>1.1.0.0</Version>
+            <ProviderName>Ken Grant</ProviderName>
+            <DefaultLocale>en-GB</DefaultLocale>
+            <DisplayName DefaultValue="Send to reMarkable"/>
+            <Description DefaultValue="Turn the email you're reading into a Microsoft To Do task, ready for your reMarkable planner."/>
+            <IconUrl DefaultValue="__BASE_URL__/assets/icon-64.png"/>
+            <HighResolutionIconUrl DefaultValue="__BASE_URL__/assets/icon-128.png"/>
+            <SupportUrl DefaultValue="__BASE_URL__/index.html"/>
+            <AppDomains>
+              <AppDomain>https://login.microsoftonline.com</AppDomain>
+            </AppDomains>
+            <Hosts>
+              <Host Name="Mailbox"/>
+            </Hosts>
+            <Requirements>
+              <Sets>
+                <Set Name="Mailbox" MinVersion="1.1"/>
+              </Sets>
+            </Requirements>
+            <FormSettings>
+              <Form xsi:type="ItemRead">
+                <DesktopSettings>
+                  <SourceLocation DefaultValue="__BASE_URL__/taskpane.html"/>
+                  <RequestedHeight>250</RequestedHeight>
+                </DesktopSettings>
+              </Form>
+            </FormSettings>
+            <Permissions>ReadItem</Permissions>
+            <Rule xsi:type="RuleCollection" Mode="Or">
+              <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+            </Rule>
+            <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+            <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+              <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+                <Requirements>
+                  <bt:Sets DefaultMinVersion="1.5">
+                    <bt:Set Name="Mailbox"/>
+                  </bt:Sets>
+                </Requirements>
+                <Hosts>
+                  <Host xsi:type="MailHost">
+                    <DesktopFormFactor>
+                      <FunctionFile resid="Commands.Url"/>
+                      <ExtensionPoint xsi:type="MessageReadCommandSurface">
+                        <OfficeTab id="TabDefault">
+                          <Group id="rmReadGroup">
+                            <Label resid="Group.Label"/>
+                            <Control xsi:type="Button" id="rmReadOpenPane">
+                              <Label resid="Button.Label"/>
+                              <Supertip>
+                                <Title resid="Button.Label"/>
+                                <Description resid="Button.Tooltip"/>
+                              </Supertip>
+                              <Icon>
+                                <bt:Image size="16" resid="Icon.16"/>
+                                <bt:Image size="32" resid="Icon.32"/>
+                                <bt:Image size="80" resid="Icon.80"/>
+                              </Icon>
+                              <Action xsi:type="ShowTaskpane">
+                                <SourceLocation resid="Taskpane.Url"/>
+                                <SupportsPinning>true</SupportsPinning>
+                              </Action>
+                            </Control>
+                            <Control xsi:type="Button" id="rmReadTomorrow">
+                              <Label resid="Tomorrow.Label"/>
+                              <Supertip>
+                                <Title resid="Tomorrow.Label"/>
+                                <Description resid="Tomorrow.Tooltip"/>
+                              </Supertip>
+                              <Icon>
+                                <bt:Image size="16" resid="Tomorrow.16"/>
+                                <bt:Image size="32" resid="Tomorrow.32"/>
+                                <bt:Image size="80" resid="Tomorrow.80"/>
+                              </Icon>
+                              <Action xsi:type="ExecuteFunction">
+                                <FunctionName>addTomorrow</FunctionName>
+                              </Action>
+                            </Control>
+                          </Group>
+                        </OfficeTab>
+                      </ExtensionPoint>
+                    </DesktopFormFactor>
+                    <MobileFormFactor>
+                      <ExtensionPoint xsi:type="MobileMessageReadCommandSurface">
+                        <Group id="rmMobileGroup">
+                          <Label resid="Group.Label"/>
+                          <Control xsi:type="MobileButton" id="rmMobileOpenPane">
+                            <Label resid="Button.Label"/>
+                            <Icon xsi:type="bt:MobileIconList">
+                              <bt:Image size="25" scale="1" resid="Icon.25"/>
+                              <bt:Image size="25" scale="2" resid="Icon.50"/>
+                              <bt:Image size="25" scale="3" resid="Icon.75"/>
+                              <bt:Image size="32" scale="1" resid="Icon.32"/>
+                              <bt:Image size="32" scale="2" resid="Icon.64"/>
+                              <bt:Image size="32" scale="3" resid="Icon.96"/>
+                              <bt:Image size="48" scale="1" resid="Icon.48"/>
+                              <bt:Image size="48" scale="2" resid="Icon.96"/>
+                              <bt:Image size="48" scale="3" resid="Icon.144"/>
+                            </Icon>
+                            <Action xsi:type="ShowTaskpane">
+                              <SourceLocation resid="Taskpane.Url"/>
+                            </Action>
+                          </Control>
+                        </Group>
+                      </ExtensionPoint>
+                    </MobileFormFactor>
+                  </Host>
+                </Hosts>
+                <Resources>
+                  <bt:Images>
+                    <bt:Image id="Icon.16" DefaultValue="__BASE_URL__/assets/icon-16.png"/>
+                    <bt:Image id="Icon.25" DefaultValue="__BASE_URL__/assets/icon-25.png"/>
+                    <bt:Image id="Icon.32" DefaultValue="__BASE_URL__/assets/icon-32.png"/>
+                    <bt:Image id="Icon.48" DefaultValue="__BASE_URL__/assets/icon-48.png"/>
+                    <bt:Image id="Icon.50" DefaultValue="__BASE_URL__/assets/icon-50.png"/>
+                    <bt:Image id="Icon.64" DefaultValue="__BASE_URL__/assets/icon-64.png"/>
+                    <bt:Image id="Icon.75" DefaultValue="__BASE_URL__/assets/icon-75.png"/>
+                    <bt:Image id="Icon.80" DefaultValue="__BASE_URL__/assets/icon-80.png"/>
+                    <bt:Image id="Icon.96" DefaultValue="__BASE_URL__/assets/icon-96.png"/>
+                    <bt:Image id="Icon.144" DefaultValue="__BASE_URL__/assets/icon-144.png"/>
+                    <bt:Image id="Tomorrow.16" DefaultValue="__BASE_URL__/assets/tomorrow-16.png"/>
+                    <bt:Image id="Tomorrow.32" DefaultValue="__BASE_URL__/assets/tomorrow-32.png"/>
+                    <bt:Image id="Tomorrow.80" DefaultValue="__BASE_URL__/assets/tomorrow-80.png"/>
+                  </bt:Images>
+                  <bt:Urls>
+                    <bt:Url id="Taskpane.Url" DefaultValue="__BASE_URL__/taskpane.html"/>
+                    <bt:Url id="Commands.Url" DefaultValue="__BASE_URL__/commands.html"/>
+                  </bt:Urls>
+                  <bt:ShortStrings>
+                    <bt:String id="Group.Label" DefaultValue="reMarkable"/>
+                    <bt:String id="Button.Label" DefaultValue="Send to reMarkable"/>
+                    <bt:String id="Tomorrow.Label" DefaultValue="Add for tomorrow"/>
+                  </bt:ShortStrings>
+                  <bt:LongStrings>
+                    <bt:String id="Button.Tooltip" DefaultValue="Create a To Do task from this email so it appears in your reMarkable planner."/>
+                    <bt:String id="Tomorrow.Tooltip" DefaultValue="One tap: add this email to your planner for tomorrow, using the subject as the task and your chosen To Do list."/>
+                  </bt:LongStrings>
+                </Resources>
+              </VersionOverrides>
+            </VersionOverrides>
+          </OfficeApp>
+          EOF_RM
+          cat > 'taskpane.css' <<'EOF_RM'
+          :root {
+            --bg: #ffffff;
+            --fg: #1f2328;
+            --muted: #646d78;
+            --line: #d7dce1;
+            --field: #f6f7f9;
+            --accent: #2b4c7e;
+            --accent-fg: #ffffff;
+            --chip-on: #e3ebf6;
+            --ok: #1a7f37;
+            --err: #b42318;
+          }
+          @media (prefers-color-scheme: dark) {
+            :root {
+              --bg: #1e1f22;
+              --fg: #e8eaed;
+              --muted: #9aa1aa;
+              --line: #3a3d42;
+              --field: #2a2c30;
+              --accent: #7fa6e0;
+              --accent-fg: #10141a;
+              --chip-on: #2f3c52;
+              --ok: #4cc26a;
+              --err: #f07167;
+            }
+          }
+          * { box-sizing: border-box; }
+          html, body { margin: 0; background: var(--bg); color: var(--fg); }
+          body {
+            font: 14px/1.45 "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+            -webkit-text-size-adjust: 100%;
+          }
+          main { padding: 14px 16px 24px; max-width: 520px; }
+          .head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+          h1 { font-size: 16px; font-weight: 600; margin: 0; }
+          h2 { font-size: 16px; font-weight: 600; margin: 6px 0; }
+          .field { display: block; margin-bottom: 14px; }
+          .label { display: block; font-weight: 600; margin-bottom: 6px; }
+          .muted { color: var(--muted); font-weight: 400; }
+          .small { font-size: 12px; }
+          .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; min-height: 1em; }
+          textarea, input[type="date"], select {
+            width: 100%;
+            font: inherit;
+            color: var(--fg);
+            background: var(--field);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 8px 10px;
+            resize: vertical;
+          }
+          input[type="date"] { margin-top: 8px; }
+          textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+          .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+          .chip {
+            font: inherit;
+            color: var(--fg);
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 6px 12px;
+            cursor: pointer;
+            min-height: 34px;
+          }
+          .chip[aria-checked="true"] { background: var(--chip-on); border-color: var(--accent); font-weight: 600; }
+          .toggles { display: grid; gap: 8px; margin: 4px 0 18px; }
+          .toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+          .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+          button.primary, .secondary {
+            font: inherit;
+            border-radius: 8px;
+            padding: 10px 14px;
+            cursor: pointer;
+            min-height: 42px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
+          button.primary { width: 100%; background: var(--accent); color: var(--accent-fg); border: 0; font-weight: 600; }
+          button.primary:disabled { opacity: .5; cursor: default; }
+          .secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+          .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+          #busy-view, #done-view, #error-view { text-align: center; padding-top: 24px; }
+          .tick {
+            width: 48px; height: 48px; margin: 0 auto;
+            border-radius: 50%;
+            background: var(--ok); color: var(--bg);
+            font-size: 26px; line-height: 48px; font-weight: 700;
+          }
+          #error-text { color: var(--err); word-break: break-word; }
+          .row { justify-content: center; }
+          .spinner {
+            width: 28px; height: 28px; margin: 0 auto 10px;
+            border: 3px solid var(--line); border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+          }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          select { resize: none; min-height: 38px; -webkit-appearance: none; appearance: none;
+            background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+            background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 32px; }
+          EOF_RM
+          cat > 'taskpane.html' <<'EOF_RM'
+          <!DOCTYPE html>
+          <html lang="en-GB">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Send to reMarkable</title>
+            <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+            <script src="vendor/msal-browser.min.js"></script>
+            <link rel="stylesheet" href="taskpane.css">
+          </head>
+          <body>
+            <main id="app">
+              <header class="head">
+                <img src="assets/icon-32.png" alt="" width="24" height="24">
+                <h1>Send to reMarkable</h1>
+              </header>
+
+              <section id="form-view" hidden>
+                <label class="field">
+                  <span class="label">Task</span>
+                  <textarea id="title" rows="2" maxlength="255" required></textarea>
+                </label>
+
+                <div class="field">
+                  <span class="label">When</span>
+                  <div class="chips" id="due-chips" role="radiogroup" aria-label="Due date">
+                    <button type="button" class="chip" data-due="today">Today</button>
+                    <button type="button" class="chip" data-due="tomorrow">Tomorrow</button>
+                    <button type="button" class="chip" data-due="monday">Next Mon</button>
+                    <button type="button" class="chip" data-due="pick">Pick…</button>
+                    <button type="button" class="chip" data-due="none">No date</button>
+                  </div>
+                  <input type="date" id="due-pick" hidden>
+                  <p class="hint" id="due-hint"></p>
+                </div>
+
+                <label class="field">
+                  <span class="label">List</span>
+                  <select id="list" aria-describedby="list-hint"></select>
+                  <p class="hint" id="list-hint"></p>
+                </label>
+
+                <label class="field">
+                  <span class="label">Note <span class="muted">(optional)</span></span>
+                  <textarea id="note" rows="3" placeholder="e.g. Chase for reply, call before Friday"></textarea>
+                </label>
+
+                <div class="toggles">
+                  <label class="toggle"><input type="checkbox" id="important"> Mark important</label>
+                  <label class="toggle"><input type="checkbox" id="reminder"> Remind me at 9:00</label>
+                  <label class="toggle"><input type="checkbox" id="snippet"> Include start of email</label>
+                </div>
+
+                <button type="button" id="submit" class="primary">Add to planner</button>
+                <p class="hint" id="dup-hint" hidden>You've already sent this email once. Sending again creates a second task.</p>
+              </section>
+
+              <section id="busy-view" hidden>
+                <div class="spinner" aria-hidden="true"></div>
+                <p id="busy-text">Working…</p>
+              </section>
+
+              <section id="done-view" hidden>
+                <div class="tick" aria-hidden="true">✓</div>
+                <h2>Added to To Do</h2>
+                <p id="done-text"></p>
+                <p class="muted small">Dayfolio will pick it up on its next sync and put it in your reMarkable planner.</p>
+                <div class="row">
+                  <a id="open-todo" class="secondary" target="_blank" rel="noopener">Open in To Do</a>
+                  <button type="button" id="again" class="secondary">Add another</button>
+                </div>
+              </section>
+
+              <section id="error-view" hidden>
+                <h2>Something went wrong</h2>
+                <p id="error-text"></p>
+                <button type="button" id="retry" class="secondary">Try again</button>
+              </section>
+            </main>
+            <script type="module" src="taskpane.js"></script>
+          </body>
+          </html>
+          EOF_RM
+          cat > 'taskpane.js' <<'EOF_RM'
+          // Send to reMarkable: Outlook add-in task pane.
+          // Creates a Microsoft To Do task from the open email. Dayfolio syncs To Do to the reMarkable planner.
+
+          import {
+            store, ymd, prettyDate, isConfigured, itemDetails, alreadySent,
+            getToken, listLists, chosenList, chooseList, createTaskFromEmail, todoLink, friendly,
+          } from "./core.js";
+
+          const $ = (id) => document.getElementById(id);
+          const views = ["form-view", "busy-view", "done-view", "error-view"];
+
+          let due = "tomorrow";
+          let current = null; // details of the open email
+          let lists = null;   // To Do lists once loaded
+
+          function show(view) {
+            for (const v of views) $(v).hidden = v !== view;
+          }
+
+          function showError(msg) {
+            $("error-text").textContent = msg;
+            show("error-view");
+          }
+
+          // ---------- due date ----------
+
+          function dueDate() {
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+            switch (due) {
+              case "today": return d;
+              case "tomorrow": d.setDate(d.getDate() + 1); return d;
+              case "monday": d.setDate(d.getDate() + (((8 - d.getDay()) % 7) || 7)); return d;
+              case "pick": {
+                const v = $("due-pick").value;
+                if (!v) return null;
+                const [y, m, day] = v.split("-").map(Number);
+                return new Date(y, m - 1, day);
+              }
+              default: return null;
+            }
+          }
+
+          function setDue(value) {
+            due = value;
+            for (const c of document.querySelectorAll("#due-chips .chip")) {
+              c.setAttribute("role", "radio");
+              c.setAttribute("aria-checked", String(c.dataset.due === value));
+            }
+            $("due-pick").hidden = value !== "pick";
+            if (value === "pick" && !$("due-pick").value) $("due-pick").value = ymd(new Date());
+            const d = dueDate();
+            $("due-hint").textContent = d ? `Due ${prettyDate(d)}` : "No due date. It may not show on a specific planner day.";
+            $("reminder").disabled = !d;
+            if (!d) $("reminder").checked = false;
+          }
+
+          // ---------- list picker ----------
+
+          function renderLists() {
+            const sel = $("list");
+            const chosen = chosenList();
+            sel.textContent = "";
+            if (!lists) {
+              const o = new Option(chosen ? chosen.name : "Default list (Tasks)", chosen ? chosen.id : "");
+              sel.add(o);
+              sel.add(new Option("Load my lists…", "__load"));
+              sel.value = o.value;
+            } else {
+              for (const l of lists) sel.add(new Option(l.name, l.isDefault ? "" : l.id));
+              const ok = chosen && lists.some((l) => l.id === chosen.id);
+              if (chosen && !ok) chooseList(null); // chosen list no longer exists
+              sel.value = ok ? chosen.id : "";
+            }
+            updateListHint();
+          }
+
+          function updateListHint() {
+            const chosen = chosenList();
+            $("list-hint").textContent = chosen
+              ? "Check Dayfolio syncs this list, or the task won't reach your reMarkable."
+              : "";
+          }
+
+          async function loadLists(interactive) {
+            try {
+              const token = await getToken({ interactive });
+              lists = await listLists(token);
+            } catch (e) {
+              if (interactive) $("list-hint").textContent = `Couldn't load lists: ${friendly(e)}`;
+              return;
+            }
+            renderLists();
+          }
+
+          async function onListChange() {
+            const v = $("list").value;
+            if (v === "__load") {
+              renderLists(); // put the current choice back while loading
+              $("list-hint").textContent = "Loading your lists…";
+              await loadLists(true);
+              return;
+            }
+            const picked = lists ? lists.find((l) => (l.isDefault ? "" : l.id) === v) : null;
+            chooseList(v ? (picked || { id: v, name: $("list").selectedOptions[0].text }) : null);
+            updateListHint();
+          }
+
+          // ---------- the open email ----------
+
+          function loadItem() {
+            const item = Office.context.mailbox.item;
+            if (!item) {
+              current = null;
+              showError("Open an email first, then press Send to reMarkable.");
+              return;
+            }
+            current = itemDetails(item);
+            $("title").value = current.subject;
+            $("note").value = "";
+            $("dup-hint").hidden = !alreadySent(current.restId);
+            show("form-view");
+          }
+
+          // ---------- create the task ----------
+
+          async function submit() {
+            if (!current) return;
+            const title = $("title").value.trim();
+            if (!title) { $("title").focus(); return; }
+            const d = dueDate();
+            if (due === "pick" && !d) { $("due-pick").focus(); return; }
+
+            show("busy-view");
+            $("busy-text").textContent = "Signing in…";
+            try {
+              const token = await getToken();
+              $("busy-text").textContent = "Creating task…";
+              const { task, listName, fellBack } = await createTaskFromEmail(token, current, {
+                title,
+                due: d,
+                note: $("note").value.trim(),
+                important: $("important").checked,
+                reminder: $("reminder").checked,
+                includeSnippet: $("snippet").checked,
+              });
+              const where = listName ? ` in ${listName}` : "";
+              $("done-text").textContent = (d ? `"${title}", due ${prettyDate(d)}${where}.` : `"${title}"${where}, no due date.`)
+                + (fellBack ? " Your chosen list no longer exists, so it went in your default list." : "");
+              $("open-todo").href = todoLink(task.id);
+              show("done-view");
+              if (fellBack) { lists = null; renderLists(); }
+            } catch (e) {
+              console.error(e);
+              showError(friendly(e));
+            }
+          }
+
+          // ---------- wire up ----------
+
+          Office.onReady(() => {
+            if (!isConfigured()) {
+              showError("This add-in isn't configured yet: set clientId and baseUrl in config.js.");
+              return;
+            }
+            for (const c of document.querySelectorAll("#due-chips .chip")) {
+              c.addEventListener("click", () => {
+                setDue(c.dataset.due);
+                if (c.dataset.due !== "pick") store("rm.due", c.dataset.due);
+              });
+            }
+            $("due-pick").addEventListener("change", () => setDue("pick"));
+            $("list").addEventListener("change", onListChange);
+            $("submit").addEventListener("click", submit);
+            $("again").addEventListener("click", loadItem);
+            $("retry").addEventListener("click", loadItem);
+            $("title").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); });
+
+            const last = store("rm.due");
+            setDue(["today", "tomorrow", "monday", "none"].includes(last) ? last : "tomorrow");
+            renderLists();
+            loadLists(false); // fills the picker quietly if you're already signed in
+
+            // Pinned task pane: refresh when you move to another email.
+            try {
+              Office.context.mailbox.addHandlerAsync(Office.EventType.ItemChanged, loadItem);
+            } catch { /* older hosts */ }
+            loadItem();
+          });
+          EOF_RM
+
+      - name: Fill in client ID, tenant and address
+        env:
+          CLIENT_ID: ${{ vars.CLIENT_ID }}
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          cd site
+          BASE_URL="${BASE_URL%/}"
+          echo "Add-in address: $BASE_URL"
+          sed -i "s#__BASE_URL__#${BASE_URL}#g" manifest.xml config.js
+          sed -i "s#__CLIENT_ID__#${CLIENT_ID}#g; s#tenant: \"kengrant.com\"#tenant: \"${TENANT}\"#" config.js
+          ! grep -R "__BASE_URL__\|__CLIENT_ID__" . || { echo "::error::Placeholder left unfilled"; exit 1; }
+          echo "Manifest: $BASE_URL/manifest.xml" >> "$GITHUB_STEP_SUMMARY"
+          echo "NAA redirect URI for Entra: brk-multihub://$(echo "$BASE_URL" | sed -E 's#https?://([^/]+).*#\1#')" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pop-up redirect URI for Entra: $BASE_URL/auth.html" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch Microsoft sign-in library (pinned, from npm)
+        run: |
+          mkdir -p /tmp/msal && cd /tmp/msal
+          npm init -y >/dev/null
+          npm install --no-save --ignore-scripts "@azure/msal-browser@${MSAL_VERSION}"
+          npm audit signatures || true
+          SRC=node_modules/@azure/msal-browser/lib/msal-browser.min.js
+          test -f "$SRC" || { echo "::error::MSAL bundle not found"; ls node_modules/@azure/msal-browser/lib; exit 1; }
+          cp "$SRC" "$GITHUB_WORKSPACE/site/vendor/msal-browser.min.js"
+          sha256sum "$GITHUB_WORKSPACE/site/vendor/msal-browser.min.js"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
