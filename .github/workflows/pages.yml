@@ -651,14 +651,17 @@ jobs:
             return `https://to-do.office.com/tasks/id/${encodeURIComponent(taskId)}/details`;
           }
 
+          // A plain-English summary plus Microsoft's own error details, so problems can be diagnosed.
           export function friendly(e) {
-            const m = (e && (e.errorMessage || e.message)) || String(e);
             if (e && e.needsSignIn) return "Open Send to reMarkable once to sign in, then try again.";
-            if (/popup|user_cancelled|cancel/i.test(m)) return "Sign-in was cancelled or the pop-up was blocked. Please try again.";
-            if (/consent|AADSTS65001/i.test(m)) return "The add-in hasn't been granted permission yet. An admin needs to grant consent in Entra.";
-            if (/AADSTS50011|redirect/i.test(m)) return "Sign-in is misconfigured (redirect URI). Check the app registration.";
-            if (/AADSTS700016|application.*not found/i.test(m)) return "The app registration couldn't be found. Check the CLIENT_ID variable.";
-            return m;
+            const m = (e && (e.errorMessage || e.message)) || String(e);
+            const code = e && e.errorCode ? `[${e.errorCode}${e.subError ? "/" + e.subError : ""}] ` : "";
+            const detail = ` Details: ${code}${m.replace(/\s+/g, " ").slice(0, 300)}`;
+            if (/user_cancelled|popup_window_error|empty_window_error/i.test(m + code)) return "Sign-in was cancelled or the pop-up was blocked. Please try again." + detail;
+            if (/AADSTS65001|AADSTS90094|consent_required/i.test(m + code)) return "Microsoft says consent is missing for this app." + detail;
+            if (/AADSTS50011|AADSTS9002326/i.test(m)) return "Sign-in is misconfigured (redirect URI)." + detail;
+            if (/AADSTS700016/i.test(m)) return "The app registration couldn't be found. Check the CLIENT_ID variable." + detail;
+            return m.length > 0 ? `${code}${m}` : "Unknown error";
           }
           EOF_RM
           cat > 'index.html' <<'EOF_RM'
