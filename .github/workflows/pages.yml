@@ -309,8 +309,8 @@ jobs:
             <meta charset="UTF-8">
             <title>Send to reMarkable commands</title>
             <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-            <script src="vendor/msal-browser.min.js"></script>
-            <script type="module" src="commands.js"></script>
+            <script src="vendor/msal-browser.min.js?v=__V__"></script>
+            <script type="module" src="commands.js?v=__V__"></script>
           </head>
           <body>
             <!-- Runs the one-tap button. Outlook loads this page out of sight. -->
@@ -324,7 +324,7 @@ jobs:
           import {
             isConfigured, itemDetails, alreadySent, tomorrow, prettyDate,
             getToken, createTaskFromEmail, chosenList, friendly,
-          } from "./core.js";
+          } from "./core.js?v=__V__";
 
           const KEY = "rmResult";
 
@@ -391,7 +391,7 @@ jobs:
           // Shared logic for the task pane and the one-tap button.
           // All network calls go only to Microsoft (sign-in + Graph).
 
-          import { CONFIG } from "./config.js";
+          import { CONFIG } from "./config.js?v=__V__";
 
           const GRAPH = "https://graph.microsoft.com/v1.0";
 
@@ -524,18 +524,21 @@ jobs:
           // ---------- Microsoft Graph ----------
 
           export async function graph(token, path, options = {}) {
-            const res = await fetch(GRAPH + path, {
+            const res = await fetch(path.startsWith("https://") ? path : GRAPH + path, {
               ...options,
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(options.headers || {}) },
             });
             if (!res.ok) {
               let msg = `${res.status} ${res.statusText}`;
+              let code = "";
               try {
                 const j = await res.json();
-                if (j.error && j.error.message) msg = j.error.message;
+                if (j.error) { msg = j.error.message || msg; code = j.error.code || ""; }
               } catch { /* keep status text */ }
-              const err = new Error(msg);
+              const what = `${(options.method || "GET")} ${path.split("?")[0].replace(/\/lists\/[^/]+/, "/lists/…").replace(/\/messages\/[^/?]+/, "/messages/…")}`;
+              const err = new Error(`Microsoft Graph ${res.status}${code ? " " + code : ""}: ${msg} (${what})`);
               err.status = res.status;
+              console.error("Graph error", res.status, code, msg, what, res.headers.get("request-id"));
               throw err;
             }
             return res.status === 204 ? null : res.json();
@@ -543,9 +546,16 @@ jobs:
 
           // All To Do lists, default list first, the rest by name.
           export async function listLists(token) {
-            const data = await graph(token, "/me/todo/lists?$select=id,wellknownListName,displayName&$top=100");
+            // Plain request (no query options) and follow paging links.
+            const all = [];
+            let next = "/me/todo/lists";
+            for (let i = 0; next && i < 10; i++) {
+              const data = await graph(token, next);
+              all.push(...(data.value || []));
+              next = data["@odata.nextLink"] || null;
+            }
             // Leave out "Flagged Emails": To Do fills it from Outlook flags and new tasks can't be added there.
-            const lists = data.value.filter((l) => l.wellknownListName !== "flaggedEmails").map((l) => ({
+            const lists = all.filter((l) => l.wellknownListName !== "flaggedEmails").map((l) => ({
               id: l.id,
               name: l.wellknownListName === "defaultList" ? `${l.displayName} (default)` : l.displayName,
               isDefault: l.wellknownListName === "defaultList",
@@ -620,7 +630,19 @@ jobs:
               }
             }
 
-            const post = (listId) => graph(token, `/me/todo/lists/${encodeURIComponent(listId)}/tasks`, { method: "POST", body: JSON.stringify(task) });
+            const postBody = (listId, body) => graph(token, `/me/todo/lists/${encodeURIComponent(listId)}/tasks`, { method: "POST", body: JSON.stringify(body) });
+            // If To Do rejects the full task (400), retry once with just the essentials so you still get the task.
+            const post = async (listId) => {
+              try {
+                return await postBody(listId, task);
+              } catch (e) {
+                if (e.status !== 400) throw e;
+                const lean = { title: task.title, importance: task.importance, body: task.body };
+                if (task.dueDateTime) lean.dueDateTime = task.dueDateTime;
+                lean.body = { contentType: "text", content: `${task.body.content}\n\nLink: ${task.linkedResources[0].webUrl}` };
+                return await postBody(listId, lean);
+              }
+            };
 
             let created, listName = chosen && wantedListId === chosen.id ? chosen.name : null, fellBack = false;
             if (wantedListId) {
@@ -965,8 +987,8 @@ jobs:
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>Send to reMarkable</title>
             <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-            <script src="vendor/msal-browser.min.js"></script>
-            <link rel="stylesheet" href="taskpane.css">
+            <script src="vendor/msal-browser.min.js?v=__V__"></script>
+            <link rel="stylesheet" href="taskpane.css?v=__V__">
           </head>
           <body>
             <main id="app">
@@ -1037,7 +1059,7 @@ jobs:
                 <button type="button" id="retry" class="secondary">Try again</button>
               </section>
             </main>
-            <script type="module" src="taskpane.js"></script>
+            <script type="module" src="taskpane.js?v=__V__"></script>
           </body>
           </html>
           EOF_RM
@@ -1048,7 +1070,7 @@ jobs:
           import {
             store, ymd, prettyDate, isConfigured, itemDetails, alreadySent,
             getToken, listLists, chosenList, chooseList, createTaskFromEmail, todoLink, friendly,
-          } from "./core.js";
+          } from "./core.js?v=__V__";
 
           const $ = (id) => document.getElementById(id);
           const views = ["form-view", "busy-view", "done-view", "error-view"];
@@ -1243,7 +1265,9 @@ jobs:
           echo "Add-in address: $BASE_URL"
           sed -i "s#__BASE_URL__#${BASE_URL}#g" manifest.xml config.js
           sed -i "s#__CLIENT_ID__#${CLIENT_ID}#g; s#tenant: \"kengrant.com\"#tenant: \"${TENANT}\"#" config.js
-          ! grep -R "__BASE_URL__\|__CLIENT_ID__" . || { echo "::error::Placeholder left unfilled"; exit 1; }
+          # Version tag on every file reference, so Outlook loads fresh files after each deploy.
+          sed -i "s#__V__#${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-1}#g" *.html *.js
+          ! grep -R "__BASE_URL__\|__CLIENT_ID__\|__V__" . || { echo "::error::Placeholder left unfilled"; exit 1; }
           echo "Manifest: $BASE_URL/manifest.xml" >> "$GITHUB_STEP_SUMMARY"
           echo "NAA redirect URI for Entra: brk-multihub://$(echo "$BASE_URL" | sed -E 's#https?://([^/]+).*#\1#')" >> "$GITHUB_STEP_SUMMARY"
           echo "Pop-up redirect URI for Entra: $BASE_URL/auth.html" >> "$GITHUB_STEP_SUMMARY"
